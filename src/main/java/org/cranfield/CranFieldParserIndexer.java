@@ -525,10 +525,15 @@ public class CranFieldParserIndexer {
                     }
 
                     // ---------- AUTOMATE TREC_EVAL ----------
+                    File trecFolder = new File("eval_trec");
+                    if (!trecFolder.exists()) trecFolder.mkdirs(); // ensure folder exists
+
                     String trecEvalOutput = String.format("eval_trec/%s_%s_trec.txt", analyzerName, simName);
+                    String internalEvalOutput = String.format("eval_trec/%s_%s_internal.txt", analyzerName, simName);
+
                     File trecEvalDetail = new File("evaluation_details.txt");
                     if (trecEvalDetail.exists()) {
-                        trecEvalDetail.renameTo(new File(trecEvalOutput));
+                        trecEvalDetail.renameTo(new File(internalEvalOutput));
                     }
                     ProcessBuilder pb = new ProcessBuilder("trec_eval", qrelsFile, resultFile);
                     Process p = pb.start();
