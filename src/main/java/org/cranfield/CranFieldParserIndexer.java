@@ -37,12 +37,7 @@ import org.apache.lucene.index.Term;
 
 import org.apache.lucene.store.FSDirectory;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -491,9 +486,6 @@ public class CranFieldParserIndexer {
 
         List<CranFieldDocument> docs = parseCranField(new File(cranFile));
 
-        // create results folder
-        new File("results").mkdirs();
-        new File("eval_trec").mkdirs();
 
         for (int i = 0; i < analyzers.size(); i++) {
             Analyzer analyzer = analyzers.get(i);
