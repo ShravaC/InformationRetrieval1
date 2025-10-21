@@ -491,6 +491,10 @@ public class CranFieldParserIndexer {
 
         List<CranFieldDocument> docs = parseCranField(new File(cranFile));
 
+        // create results folder
+        new File("results").mkdirs();
+        new File("eval_trec").mkdirs();
+
         for (int i = 0; i < analyzers.size(); i++) {
             Analyzer analyzer = analyzers.get(i);
             String analyzerName = analyzerNames[i];
@@ -526,7 +530,7 @@ public class CranFieldParserIndexer {
                 try (IndexReader reader = DirectoryReader.open(FSDirectory.open(indexPath))) {
                     IndexSearcher searcher = makeSearcherWithSimilarity(reader, simChoice);
 
-                    // output results file per combination
+                    // results file per combination
                     String resultFile = String.format("results/%s_%s_results.txt", analyzerName, simName);
                     String evalFile = String.format("results/%s_%s_eval.txt", analyzerName, simName);
 
@@ -542,11 +546,25 @@ public class CranFieldParserIndexer {
                     if (evalDetails.exists()) {
                         evalDetails.renameTo(new File(evalFile));
                     }
+
+                    // ---------- AUTOMATE TREC_EVAL ----------
+                    String trecEvalOutput = String.format("eval_trec/%s_%s_trec.txt", analyzerName, simName);
+                    String cmd = String.format("trec_eval %s %s", qrelsFile, resultFile);
+                    Process p = Runtime.getRuntime().exec(cmd);
+                    try (BufferedReader readerCmd = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                         PrintWriter writer = new PrintWriter(new FileWriter(trecEvalOutput))) {
+                        String line;
+                        while ((line = readerCmd.readLine()) != null) {
+                            writer.println(line);
+                        }
+                    }
+                    p.waitFor();
+                    System.out.println("✅ TREC_EVAL done: " + trecEvalOutput);
                 }
             }
         }
 
-        System.out.println("\n✅ All analyzer × similarity combinations completed. Check results/ folder.");
+        System.out.println("\n🎯 All analyzer × similarity combinations completed. Check results/ and eval_trec/ folders.");
     }
 
     // --------------------------
