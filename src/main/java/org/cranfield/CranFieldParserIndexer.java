@@ -189,7 +189,7 @@ public class CranFieldParserIndexer {
         System.out.println("Enter queries. Type ':q' to return to menu.");
         while (true) {
             System.out.print("\nQuery: ");
-            String line = sc.nextLine();
+            String line = sc.nextLine().replaceAll("[\\?\\*]", " ");;
             if (line == null || line.equals(":q")) break;
             line = line.trim();
             if (line.isEmpty()) continue;
@@ -293,7 +293,8 @@ public class CranFieldParserIndexer {
             for (Map.Entry<String, String> e : queries.entrySet()) {
                 String qid = e.getKey();
                 String text = e.getValue();
-                Query q = parser.parse(text);
+                String safeQuery = text.replaceAll("[\\?\\*]", " ");
+                Query q = parser.parse(safeQuery);
                 TopDocs topDocs = searcher.search(q, topK);
                 int rank = 1;
                 for (ScoreDoc sd : topDocs.scoreDocs) {
@@ -401,7 +402,8 @@ public class CranFieldParserIndexer {
                 String qtext = e.getValue();
                 Map<String, Integer> rels = qrels.getOrDefault(qid, Collections.emptyMap());
 
-                Query q = parser.parse(qtext);
+                String safeQuery = qtext.replaceAll("[\\?\\*]", " ");
+                Query q = parser.parse(safeQuery);
                 TopDocs topDocs = searcher.search(q, topK);
                 // retrieved doc ids in order
                 List<String> retrieved = new ArrayList<>();
