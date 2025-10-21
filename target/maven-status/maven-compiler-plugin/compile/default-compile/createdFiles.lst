@@ -1,4 +1,2 @@
-org\cranfield\CranfieldParserIndexer$CranfieldDoc.class
-org\cranfield\CranFieldTotal.class
-org\cranfield\CranfieldParserIndexer.class
-org\cranfield\CranFieldTotal$CranFieldDocument.class
+org/cranfield/CranFieldParserIndexer$CranFieldDocument.class
+org/cranfield/CranFieldParserIndexer.class
