@@ -20,7 +20,7 @@ import org.apache.lucene.store.FSDirectory;
 public class CranFieldTotal {
 
     private static final Path INDEX_PATH = Paths.get("index");
-    private static final String CRAN_FILE = "cran.all";
+    private static final String CRAN_FILE = "cran/cran.all.1400";
 
     public static class CranFieldDocument {
         public String id, title = "", author = "", biblio = "", body = "";
