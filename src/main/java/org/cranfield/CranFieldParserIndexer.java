@@ -630,7 +630,7 @@ public class CranFieldParserIndexer {
                             System.out.println("trec_eval " + qrelsFile + " " + outputFile);
                         }
                         break;
-                    case "5":
+                    case "4":
                         runAllCombinations(CRAN_FILE, "cran/cran.qry", "cran/cranqrel");
                         break;
                     default:
