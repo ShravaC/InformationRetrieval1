@@ -80,7 +80,7 @@ import java.util.Scanner;
 public class CranFieldParserIndexer {
 
     private static final Path INDEX_PATH = Paths.get("index");
-    private static final String CRAN_FILE = "cran/cran.all";
+    private static final String CRAN_FILE = "cran/cran.all.1400";
 
     // Default retrieval depth for evaluation
     private static final int DEFAULT_TOP_K = 100;
@@ -531,12 +531,12 @@ public class CranFieldParserIndexer {
                         break;
                     case "2":
                     case "3":
-                        System.out.print("Path to queries file (e.g. cran.qry) : ");
-                        String queriesFile = sc.nextLine().trim();
-                        System.out.print("Path to qrels file (e.g. cranqrel) : ");
-                        String qrelsFile = sc.nextLine().trim();
-                        System.out.print("Output TREC results file path (e.g. results.txt) : ");
-                        String outputFile = sc.nextLine().trim();
+                        System.out.print("Path to queries file : cran/cran.qry");
+                        String queriesFile = "cran/cran.qry";
+                        System.out.print("Path to qrels file: cran/cranqrel");
+                        String qrelsFile = "cran/cranqrel";
+                        System.out.print("Output TREC results file path: results/results.txt ");
+                        String outputFile = "results/results.txt";
                         System.out.print("Top-K retrieval depth (default 100) : ");
                         String topkStr = sc.nextLine().trim();
                         int topK = topkStr.isEmpty() ? DEFAULT_TOP_K : Integer.parseInt(topkStr);
