@@ -475,6 +475,81 @@ public class CranFieldParserIndexer {
     }
 
     // --------------------------
+// Run all analyzer × similarity combinations automatically
+// --------------------------
+    public static void runAllCombinations(String cranFile, String queriesFile, String qrelsFile) throws Exception {
+        List<Analyzer> analyzers = List.of(
+                new StandardAnalyzer(),
+                new EnglishAnalyzer(),
+                new SimpleAnalyzer(),
+                new WhitespaceAnalyzer()
+        );
+
+        String[] analyzerNames = {"StandardAnalyzer", "EnglishAnalyzer", "SimpleAnalyzer", "WhitespaceAnalyzer"};
+        int[] similarities = {1, 2, 3, 4}; // Classic, BM25, Dirichlet, Jelinek-Mercer
+        String[] simNames = {"TFIDF", "BM25", "LMDirichlet", "LMJelinekMercer"};
+
+        List<CranFieldDocument> docs = parseCranField(new File(cranFile));
+
+        for (int i = 0; i < analyzers.size(); i++) {
+            Analyzer analyzer = analyzers.get(i);
+            String analyzerName = analyzerNames[i];
+
+            for (int s = 0; s < similarities.length; s++) {
+                int simChoice = similarities[s];
+                String simName = simNames[s];
+
+                String indexDirName = "index_" + analyzerName + "_" + simName;
+                Path indexPath = Paths.get(indexDirName);
+
+                System.out.println("\n=== Running combo: " + analyzerName + " + " + simName + " ===");
+
+                // build index
+                System.out.println("Building index: " + indexDirName);
+                var dir = FSDirectory.open(indexPath);
+                IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+                iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
+                try (IndexWriter writer = new IndexWriter(dir, iwc)) {
+                    for (CranFieldDocument cd : docs) {
+                        Document d = new Document();
+                        d.add(new StringField("id", cd.id == null ? "" : cd.id, Field.Store.YES));
+                        d.add(new TextField("title", cd.title == null ? "" : cd.title, Field.Store.YES));
+                        d.add(new TextField("author", cd.author == null ? "" : cd.author, Field.Store.YES));
+                        d.add(new TextField("biblio", cd.biblio == null ? "" : cd.biblio, Field.Store.NO));
+                        d.add(new TextField("body", cd.body == null ? "" : cd.body, Field.Store.YES));
+                        writer.addDocument(d);
+                    }
+                    writer.commit();
+                }
+
+                // open searcher
+                try (IndexReader reader = DirectoryReader.open(FSDirectory.open(indexPath))) {
+                    IndexSearcher searcher = makeSearcherWithSimilarity(reader, simChoice);
+
+                    // output results file per combination
+                    String resultFile = String.format("results/%s_%s_results.txt", analyzerName, simName);
+                    String evalFile = String.format("results/%s_%s_eval.txt", analyzerName, simName);
+
+                    // generate TREC results
+                    generateTrecResults(searcher, analyzer, queriesFile, resultFile, DEFAULT_TOP_K, 2.0f, 1.0f);
+
+                    // run internal evaluation
+                    System.out.println("Running internal eval for " + analyzerName + " + " + simName);
+                    runInternalEvaluation(searcher, analyzer, queriesFile, qrelsFile, DEFAULT_TOP_K, 2.0f, 1.0f);
+
+                    // rename evaluation_details.txt to avoid overwriting
+                    File evalDetails = new File("evaluation_details.txt");
+                    if (evalDetails.exists()) {
+                        evalDetails.renameTo(new File(evalFile));
+                    }
+                }
+            }
+        }
+
+        System.out.println("\n✅ All analyzer × similarity combinations completed. Check results/ folder.");
+    }
+
+    // --------------------------
     // Main program flow & menu
     // --------------------------
     public static void main(String[] args) throws Exception {
@@ -522,9 +597,10 @@ public class CranFieldParserIndexer {
             while (true) {
                 System.out.println("\n--- Menu ---");
                 System.out.println("1: Interactive search");
-                System.out.println("2: Generate TREC results (batch) for queries and also run internal evaluation");
-                System.out.println("3: Just generate TREC results (no internal eval)");
-                System.out.println("4: Exit");
+                System.out.println("2: Generate TREC results for queries and also run internal evaluation");
+                System.out.println("3: Just generate TREC results");
+                System.out.println("4: Run all analyzer × similarity combinations automatically");
+                System.out.println("5: Exit");
                 System.out.print("> ");
                 String choice = sc.nextLine().trim();
                 switch (choice) {
@@ -553,6 +629,9 @@ public class CranFieldParserIndexer {
                             System.out.println("\nYou can also run trec_eval externally:");
                             System.out.println("trec_eval " + qrelsFile + " " + outputFile);
                         }
+                        break;
+                    case "5":
+                        runAllCombinations(CRAN_FILE, "cran/cran.qry", "cran/cranqrel");
                         break;
                     default:
                         break mainLoop;
