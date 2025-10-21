@@ -77,15 +77,15 @@ import java.util.Scanner;
  * - Qrels file expected in TREC qrel-like format: "<qid> 0 <docid> <relevance>"
  * - Query file expected in cran.qry form (uses .I and .W tags)
  */
-public class CranfieldParserIndexer {
+public class CranFieldParserIndexer {
 
     private static final Path INDEX_PATH = Paths.get("index");
-    private static final String CRAN_FILE = "cran.all";
+    private static final String CRAN_FILE = "cran/cran.all";
 
     // Default retrieval depth for evaluation
     private static final int DEFAULT_TOP_K = 100;
 
-    static class CranfieldDoc {
+    static class CranFieldDocument {
         public String id = "";
         public String title = "";
         public String author = "";
@@ -96,11 +96,11 @@ public class CranfieldParserIndexer {
     // --------------------------
     // Parsing cran.all
     // --------------------------
-    public static List<CranfieldDoc> parseCranfield(File cranAll) throws IOException {
-        List<CranfieldDoc> docs = new ArrayList<>();
+    public static List<CranFieldDocument> parseCranField(File cranAll) throws IOException {
+        List<CranFieldDocument> docs = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new FileReader(cranAll))) {
             String line;
-            CranfieldDoc cur = null;
+            CranFieldDocument cur = null;
             String section = null;
             StringBuilder sb = new StringBuilder();
             while ((line = r.readLine()) != null) {
@@ -110,7 +110,7 @@ public class CranfieldParserIndexer {
                         assignSection(cur, section, sb.toString().trim());
                         docs.add(cur);
                     }
-                    cur = new CranfieldDoc();
+                    cur = new CranFieldDocument();
                     cur.id = line.substring(3).trim();
                     section = null;
                     sb.setLength(0);
@@ -131,7 +131,7 @@ public class CranfieldParserIndexer {
         return docs;
     }
 
-    private static void assignSection(CranfieldDoc doc, String section, String text) {
+    private static void assignSection(CranFieldDocument doc, String section, String text) {
         if (section == null) return;
         switch (section) {
             case "T": doc.title = text; break;
@@ -144,12 +144,12 @@ public class CranfieldParserIndexer {
     // --------------------------
     // Build index with chosen analyzer
     // --------------------------
-    public static void buildIndex(List<CranfieldDoc> docs, Analyzer analyzer) throws Exception {
+    public static void buildIndex(List<CranFieldDocument> docs, Analyzer analyzer) throws Exception {
         var dir = FSDirectory.open(INDEX_PATH);
         IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
         iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
-            for (CranfieldDoc cd : docs) {
+            for (CranFieldDocument cd : docs) {
                 Document d = new Document();
                 d.add(new StringField("id", cd.id == null ? "" : cd.id, Field.Store.YES));
                 d.add(new TextField("title", cd.title == null ? "" : cd.title, Field.Store.YES));
@@ -488,7 +488,7 @@ public class CranfieldParserIndexer {
         // Choose analyzer & index
         Analyzer analyzer = chooseAnalyzer(sc);
         System.out.println("Parsing cran.all ...");
-        List<CranfieldDoc> docs = parseCranfield(cran);
+        List<CranFieldDocument> docs = parseCranField(cran);
         System.out.println("Parsed documents: " + docs.size());
         System.out.println("Building index using analyzer: " + analyzer.getClass().getSimpleName());
         buildIndex(docs, analyzer);

@@ -21,6 +21,7 @@ public class CranFieldTotal {
 
     private static final Path INDEX_PATH = Paths.get("index");
     private static final String CRAN_FILE = "cran/cran.all.1400";
+    private static final String CRAN_QUERY_FILE = "cran/cran.qry";
 
     public static class CranFieldDocument {
         public String id, title = "", author = "", biblio = "", body = "";
@@ -95,6 +96,63 @@ public class CranFieldTotal {
                 writer.addDocument(d);
             }
         }
+    }
+
+    // ------------------ Parse cran.qry ------------------
+    public static Map<String, String> parseQueries(File file) throws IOException {
+        Map<String, String> queries = new LinkedHashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            String id = null;
+            StringBuilder sb = new StringBuilder();
+            boolean inQuery = false;
+
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith(".I")) {
+                    if (id != null) {
+                        queries.put(id, sb.toString().trim());
+                        sb.setLength(0);
+                    }
+                    id = line.substring(3).trim();
+                    inQuery = false;
+                } else if (line.equals(".W")) {
+                    inQuery = true;
+                } else if (inQuery) {
+                    sb.append(line).append(' ');
+                }
+            }
+            if (id != null) queries.put(id, sb.toString().trim());
+        }
+        return queries;
+    }
+
+    // ------------------ Run queries automatically ------------------
+    public static void runQueries(IndexSearcher searcher, Analyzer analyzer, File qryFile) throws IOException, ParseException {
+        Map<String, String> queries = parseQueries(qryFile);
+        String[] fields = {"title", "body"};
+        Map<String, Float> boosts = Map.of("title", 2.0f, "body", 1.0f);
+        MultiFieldQueryParser parser = new MultiFieldQueryParser(fields, analyzer, boosts);
+
+        Path resultsPath = Paths.get("results.txt");
+        try (BufferedWriter writer = Files.newBufferedWriter(resultsPath)) {
+            for (Map.Entry<String, String> entry : queries.entrySet()) {
+                String qid = entry.getKey();
+                String qText = entry.getValue();
+                Query q = parser.parse(qText);
+                TopDocs topDocs = searcher.search(q, 50);
+
+                for (ScoreDoc sd : topDocs.scoreDocs) {
+                    Document doc = searcher.storedFields().document(sd.doc);
+                    String docId = doc.get("id");
+                    float score = sd.score;
+
+                    // Write to results file in TREC format
+                    writer.write(String.format("%s Q0 %s 0 %.6f STANDARD%n", qid, docId, score));
+                }
+            }
+        }
+        System.out.println("Queries run complete. Results saved to: " + resultsPath.toAbsolutePath());
     }
 
     // ------------------ Interactive search ------------------
