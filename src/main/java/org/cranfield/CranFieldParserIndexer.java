@@ -139,8 +139,8 @@ public class CranFieldParserIndexer {
     // --------------------------
     // Build index with chosen analyzer
     // --------------------------
-    public static void buildIndex(List<CranFieldDocument> docs, Analyzer analyzer) throws Exception {
-        var dir = FSDirectory.open(INDEX_PATH);
+    public static void buildIndex(Path indexPath, List<CranFieldDocument> docs, Analyzer analyzer) throws Exception {
+        var dir = FSDirectory.open(indexPath);
         IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
         iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
@@ -501,22 +501,7 @@ public class CranFieldParserIndexer {
                 System.out.println("\n=== Running combo: " + analyzerName + " + " + simName + " ===");
 
                 // build index
-                System.out.println("Building index: " + indexDirName);
-                var dir = FSDirectory.open(indexPath);
-                IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
-                iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
-                try (IndexWriter writer = new IndexWriter(dir, iwc)) {
-                    for (CranFieldDocument cd : docs) {
-                        Document d = new Document();
-                        d.add(new StringField("id", cd.id == null ? "" : cd.id, Field.Store.YES));
-                        d.add(new TextField("title", cd.title == null ? "" : cd.title, Field.Store.YES));
-                        d.add(new TextField("author", cd.author == null ? "" : cd.author, Field.Store.YES));
-                        d.add(new TextField("biblio", cd.biblio == null ? "" : cd.biblio, Field.Store.NO));
-                        d.add(new TextField("body", cd.body == null ? "" : cd.body, Field.Store.YES));
-                        writer.addDocument(d);
-                    }
-                    writer.commit();
-                }
+                buildIndex(indexPath, docs, analyzer);
 
                 // open searcher
                 try (IndexReader reader = DirectoryReader.open(FSDirectory.open(indexPath))) {
@@ -541,8 +526,13 @@ public class CranFieldParserIndexer {
 
                     // ---------- AUTOMATE TREC_EVAL ----------
                     String trecEvalOutput = String.format("eval_trec/%s_%s_trec.txt", analyzerName, simName);
-                    String cmd = String.format("trec_eval %s %s", qrelsFile, resultFile);
-                    Process p = Runtime.getRuntime().exec(cmd);
+                    File trecEvalDetail = new File("evaluation_details.txt");
+                    if (trecEvalDetail.exists()) {
+                        trecEvalDetail.renameTo(new File(trecEvalOutput));
+                    }
+                    ProcessBuilder pb = new ProcessBuilder("trec_eval", qrelsFile, resultFile);
+                    Process p = pb.start();
+
                     try (BufferedReader readerCmd = new BufferedReader(new InputStreamReader(p.getInputStream()));
                          PrintWriter writer = new PrintWriter(new FileWriter(trecEvalOutput))) {
                         String line;
@@ -578,7 +568,7 @@ public class CranFieldParserIndexer {
         List<CranFieldDocument> docs = parseCranField(cran);
         System.out.println("Parsed documents: " + docs.size());
         System.out.println("Building index using analyzer: " + analyzer.getClass().getSimpleName());
-        buildIndex(docs, analyzer);
+        buildIndex(INDEX_PATH, docs, analyzer);
         System.out.println("Index built at: " + INDEX_PATH.toAbsolutePath());
 
         // interactive configuration: boosts and similarity
