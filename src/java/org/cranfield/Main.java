@@ -1,213 +1,394 @@
-// package ie.tcd.dalyc24;
+package java.org.cranfield
+/* CranfieldSearchEngine.java
+ *
+ * Single-file program to:
+ *  - parse and index Cranfield collection (cran.all.1400)
+ *  - parse queries (cran.qry) and qrels (cran.qrel)
+ *  - run queries with specified Analyzer and Similarity (BM25 or TF-IDF)
+ *  - produce a TREC-style results file (results.txt)
+ *  - compute MAP and Recall@50 in Java
+ *
+ * Usage:
+ *   Compile:
+ *     javac -cp "path/to/lucene-core.jar:path/to/lucene-analyzers-common.jar:path/to/lucene-queryparser.jar" CranfieldSearchEngine.java
+ *
+ *   Run:
+ *     java -cp ".:path/to/lucene-core.jar:path/to/lucene-analyzers-common.jar:path/to/lucene-queryparser.jar" CranfieldSearchEngine \
+ *         --cran cran.all.1400 --queries cran.qry --qrels cran.qrel --index index-dir --similarity bm25 --analyzer english
+ *
+ * Options (simple):
+ *   --cran <path>        Path to cran.all.1400
+ *   --queries <path>     Path to cran.qry
+ *   --qrels <path>       Path to cran.qrel
+ *   --index <path>       Directory to write Lucene index (will be created)
+ *   --similarity <bm25|tfidf>  Similarity to use for searching (default: bm25)
+ *   --analyzer <standard|english> Analyzer to use (default: english)
+ *
+ * Output:
+ *   - results.txt (TREC results file)
+ *   - printed MAP and Recall@50
+ *
+ * Note: ensure your cran files are the standard ones from:
+ *       http://ir.dcs.gla.ac.uk/resources/test_collections/cran/
+ *
+ * Author: ChatGPT (code generated)
+ */
 
-// import java.io.IOException;
-
-// import java.nio.file.Paths;
-
-// import org.apache.lucene.analysis.Analyzer;
-// import org.apache.lucene.analysis.standard.StandardAnalyzer;
-// import org.apache.lucene.document.Document;
-// import org.apache.lucene.document.Field;
-// import org.apache.lucene.document.TextField;
-// import org.apache.lucene.index.IndexWriter;
-// import org.apache.lucene.index.IndexWriterConfig;
-// import org.apache.lucene.store.Directory;
-// import org.apache.lucene.store.FSDirectory;
-// // import org.apache.lucene.store.RAMDirectory;
- 
-// public class Cranfield
-// {
-    
-//     // Directory where the search index will be saved
-//     private static String INDEX_DIRECTORY = "../index";
-//     private static String CRAN = "cran/cran/cran.all";
-
-//     public 
-//     public static void parseCrandfieldDocument(String cranfieldPath){
-//     // make list of object of class documentStruc
-    
-
-//     }
-
-//     public static void main(String[] args) throws IOException
-//     {
-//         // Analyzer that is used to process TextField
-//         Analyzer analyzer = new StandardAnalyzer();
-        
-//         // To store an index in memory
-//         // Directory directory = new RAMDirectory();
-//         // To store an index on disk
-//         Directory directory = FSDirectory.open(Paths.get(INDEX_DIRECTORY));
-//         IndexWriterConfig config = new IndexWriterConfig(analyzer);
-        
-//         // Index opening mode
-//         // IndexWriterConfig.OpenMode.CREATE = create a new index
-//         // IndexWriterConfig.OpenMode.APPEND = open an existing index
-//         // IndexWriterConfig.OpenMode.CREATE_OR_APPEND = create an index if it
-//         // does not exist, otherwise it opens it
-//         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
-        
-//         IndexWriter iwriter = new IndexWriter(directory, config);  
-        
-//         // Create a new document
-//         // Document doc = new Document();
-//         // doc.add(new TextField("super_name", "Spider-MAN1", Field.Store.YES));
-//         // doc.add(new TextField("name", "Peter ParkER1", Field.Store.YES));
-//         // doc.add(new TextField("category", "superheRO0", Field.Store.YES));
-
-//         for (String arg : args)
-// 		{
-// 			// Load the contents of the file
-// 			System.out.printf("Indexing \"%s\"\n", arg);
-// 			String content = new String(Files.readAllBytes(Paths.get(arg)));
-
-// 			// Create a new document and add the file's contents
-// 			Document doc = new Document();
-// 			doc.add(new StringField("filename", arg, Field.Store.YES));
-// 			doc.add(new TextField("content", content, Field.Store.YES));
-
-// 			// Add the file to our linked list
-// 			documents.add(doc);
-// 		}
-
-// 		// Write all the documents in the linked list to the search index
-// 		iwriter.addDocuments(documents);
-
-
-//         // Save the document to the index
-//         iwriter.addDocument(doc);
-
-//         // Commit changes and close everything
-//         iwriter.close();
-//         directory.close();
-//     }
-// }
-
-package ie.tcd.dalyc24;
-
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.TextField;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.*;
+import org.apache.lucene.store.*;
+import org.apache.lucene.search.*;
+import org.apache.lucene.search.similarities.*;
+import org.apache.lucene.queryparser.classic.*;
+import org.apache.lucene.util.Version;
 
-public class Main {
+public class CranfieldSearchEngine {
 
-    // Directory where the search index will be saved
-    private static String INDEX_DIRECTORY = "../index";
-    private static String CRAN = "cran/cran.all.1400";
+    // default file names - change or pass via args
+    private static String CRAN_PATH = "cran.all.1400";
+    private static String QUERIES_PATH = "cran.qry";
+    private static String QRELS_PATH = "cran.qrel";
+    private static String INDEX_DIR = "index";
+    private static String RESULTS_FILE = "results.txt";
+    private static String RUN_TAG = "myRun";
 
-    // -----------------------------
-    // Parse Cranfield Dataset
-    // -----------------------------
-    public static List<documentStruc> parseCranfieldDocument(String cranfieldPath) {
-        List<documentStruc> docs = new ArrayList<>();
+    // Top-K to retrieve per query
+    private static final int TOP_K = 50;
 
-        try {
-            List<String> lines = Files.readAllLines(Paths.get(cranfieldPath));
-            String id = "", title = "", author = "", bib = "", body = "";
-            String currentTag = "";
+    public static void main(String[] args) throws Exception {
+        // Simple arg parsing
+        Map<String, String> amap = parseArgs(args);
+        if (amap.containsKey("cran")) CRAN_PATH = amap.get("cran");
+        if (amap.containsKey("queries")) QUERIES_PATH = amap.get("queries");
+        if (amap.containsKey("qrels")) QRELS_PATH = amap.get("qrels");
+        if (amap.containsKey("index")) INDEX_DIR = amap.get("index");
+        String similarityChoice = amap.getOrDefault("similarity", "bm25").toLowerCase();
+        String analyzerChoice = amap.getOrDefault("analyzer", "english").toLowerCase();
 
-            for (String line : lines) {
-                if (line.startsWith(".I")) {
-                    // Save previous doc
-                    if (!id.isEmpty()) {
-                        docs.add(new documentStruc(id, title.trim(), author.trim(), bib.trim(), body.trim()));
-                        title = author = bib = body = "";
-                    }
-                    id = line.substring(3).trim();
-                } else if (line.startsWith(".T")) {
-                    currentTag = "T";
-                } else if (line.startsWith(".A")) {
-                    currentTag = "A";
-                } else if (line.startsWith(".B")) {
-                    currentTag = "B";
-                } else if (line.startsWith(".W")) {
-                    currentTag = "W";
-                } else {
-                    switch (currentTag) {
-                        case "T": title += line + " "; break;
-                        case "A": author += line + " "; break;
-                        case "B": bib += line + " "; break;
-                        case "W": body += line + " "; break;
-                    }
-                }
-            }
+        System.out.println("Cranfile: " + CRAN_PATH);
+        System.out.println("Queries: " + QUERIES_PATH);
+        System.out.println("Qrels: " + QRELS_PATH);
+        System.out.println("Index dir: " + INDEX_DIR);
+        System.out.println("Similarity: " + similarityChoice);
+        System.out.println("Analyzer: " + analyzerChoice);
 
-            // Add the last document
-            if (!id.isEmpty()) {
-                docs.add(new documentStruc(id, title.trim(), author.trim(), bib.trim(), body.trim()));
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
+        // Choose analyzer
+        Analyzer analyzer;
+        switch (analyzerChoice) {
+            case "standard":
+                analyzer = new StandardAnalyzer();
+                break;
+            case "english":
+            default:
+                analyzer = new EnglishAnalyzer(); // includes stopwords + Porter stemming
+                break;
         }
 
+        // Parse documents
+        List<DocStruct> docs = parseCranfieldDocument(CRAN_PATH);
+        System.out.printf("Parsed %d documents from Cranfield.\n", docs.size());
+
+        // Index documents
+        indexDocuments(docs, INDEX_DIR, analyzer);
+
+        // Parse queries and qrels
+        Map<String, String> queries = parseCranfieldQueries(QUERIES_PATH);
+        System.out.printf("Parsed %d queries.\n", queries.size());
+
+        Map<String, Set<String>> qrels = parseQrels(QRELS_PATH);
+        System.out.printf("Parsed qrels for %d queries.\n", qrels.size());
+
+        // Prepare searcher
+        Directory dir = FSDirectory.open(Paths.get(INDEX_DIR));
+        DirectoryReader reader = DirectoryReader.open(dir);
+        IndexSearcher searcher = new IndexSearcher(reader);
+
+        // Set similarity
+        if (similarityChoice.equals("bm25")) {
+            searcher.setSimilarity(new BM25Similarity());
+        } else if (similarityChoice.equals("tfidf") || similarityChoice.equals("vsm")) {
+            searcher.setSimilarity(new ClassicSimilarity()); // Lucene's TF-IDF implementation
+        } else {
+            System.out.println("Unknown similarity, using BM25.");
+            searcher.setSimilarity(new BM25Similarity());
+        }
+
+        // Multi-field query over "title" and "body" (we index both)
+        String[] searchFields = new String[] { "title", "body" };
+        MultiFieldQueryParser mfqp = new MultiFieldQueryParser(searchFields, analyzer);
+
+        // Results file to write TREC formatted lines
+        BufferedWriter resultsWriter = new BufferedWriter(new FileWriter(RESULTS_FILE));
+
+        // For MAP & recall calculation
+        double sumAvgPrecision = 0.0;
+        int queriesWithAtLeastOneRelevant = 0;
+        double sumRecallAt50 = 0.0;
+        int processedQueries = 0;
+
+        List<String> sortedQueryIds = new ArrayList<>(queries.keySet());
+        Collections.sort(sortedQueryIds, Comparator.comparingInt(Integer::parseInt)); // ensure numeric order
+
+        for (String qid : sortedQueryIds) {
+            processedQueries++;
+            String qtext = queries.get(qid);
+            if (qtext == null || qtext.trim().isEmpty()) continue;
+
+            Query luceneQuery = mfqp.parse(QueryParser.escape(qtext));
+
+            TopDocs topDocs = searcher.search(luceneQuery, TOP_K);
+            ScoreDoc[] hits = topDocs.scoreDocs;
+
+            // write TREC-format results: query_id Q0 docno rank score myRunTag
+            for (int rank = 0; rank < hits.length; rank++) {
+                Document doc = searcher.doc(hits[rank].doc);
+                String docno = doc.get("id");
+                float score = hits[rank].score;
+                // TREC format
+                String line = String.format("%s Q0 %s %d %.6f %s", qid, docno, rank+1, score, RUN_TAG);
+                resultsWriter.write(line);
+                resultsWriter.newLine();
+            }
+
+            // Compute Average Precision for this query using qrels
+            Set<String> relevant = qrels.getOrDefault(qid, Collections.emptySet());
+            if (relevant.size() > 0) {
+                queriesWithAtLeastOneRelevant++;
+            }
+
+            // iterate retrieved and accumulate for AP
+            int numRelRetrieved = 0;
+            double sumPrecisionAtRel = 0.0;
+            for (int rank = 0; rank < hits.length; rank++) {
+                Document doc = searcher.doc(hits[rank].doc);
+                String docno = doc.get("id");
+                if (relevant.contains(docno)) {
+                    numRelRetrieved++;
+                    double precisionAtK = (double) numRelRetrieved / (rank + 1);
+                    sumPrecisionAtRel += precisionAtK;
+                }
+            }
+            double avgPrecision = 0.0;
+            if (relevant.size() > 0) {
+                avgPrecision = sumPrecisionAtRel / (double) relevant.size();
+            }
+            sumAvgPrecision += avgPrecision;
+
+            // Recall@50 = number of relevant in top50 / total relevant for that query
+            double recallAt50 = 0.0;
+            if (relevant.size() > 0) {
+                int relInTopK = 0;
+                for (ScoreDoc sd : hits) {
+                    Document doc = searcher.doc(sd.doc);
+                    if (relevant.contains(doc.get("id"))) relInTopK++;
+                }
+                recallAt50 = (double) relInTopK / (double) relevant.size();
+                sumRecallAt50 += recallAt50;
+            }
+        }
+
+        resultsWriter.close();
+        reader.close();
+        dir.close();
+
+        double MAP = sumAvgPrecision / (double) processedQueries;
+        double meanRecallAt50 = sumRecallAt50 / (double) processedQueries; // note: queries without qrels counted as 0 recall
+
+        System.out.println("==== Evaluation (computed in Java) ====");
+        System.out.printf("Processed queries: %d\n", processedQueries);
+        System.out.printf("MAP (over all queries) = %.6f\n", MAP);
+        System.out.printf("Mean Recall@%d = %.6f\n", TOP_K, meanRecallAt50);
+        System.out.println("TREC-style results written to: " + RESULTS_FILE);
+        System.out.println("You can run trec_eval externally: ./trec_eval <qrels> " + RESULTS_FILE);
+    }
+
+    // -----------------------------
+    // Indexing
+    // -----------------------------
+    private static void indexDocuments(List<DocStruct> docs, String indexDir, Analyzer analyzer) throws IOException {
+        Path indexPath = Paths.get(indexDir);
+        if (!Files.exists(indexPath)) {
+            Files.createDirectories(indexPath);
+        }
+        Directory directory = FSDirectory.open(indexPath);
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
+
+        IndexWriter writer = new IndexWriter(directory, config);
+
+        System.out.println("Indexing documents...");
+        int count = 0;
+        for (DocStruct d : docs) {
+            Document doc = new Document();
+            // id: store as StringField? We need it searchable as exact identifier; store it and keep searchable
+            // Use TextField for consistency with user's earlier code, but better is StringField. We want to sort/compare exact numbers,
+            // but queries will search title/body. We will use StringField for id.
+            doc.add(new StringField("id", d.id, Field.Store.YES));
+            doc.add(new TextField("title", d.title == null ? "" : d.title, Field.Store.YES));
+            doc.add(new TextField("author", d.author == null ? "" : d.author, Field.Store.YES));
+            doc.add(new TextField("bib", d.bib == null ? "" : d.bib, Field.Store.YES));
+            doc.add(new TextField("body", d.body == null ? "" : d.body, Field.Store.YES));
+            writer.addDocument(doc);
+
+            count++;
+            if (count % 200 == 0) System.out.printf("  indexed %d docs...\n", count);
+        }
+        writer.close();
+        directory.close();
+        System.out.println("Indexing complete. Total indexed: " + docs.size());
+    }
+
+    // -----------------------------
+    // Parse Cranfield doc file (cran.all.1400)
+    // -----------------------------
+    private static List<DocStruct> parseCranfieldDocument(String cranfieldPath) throws IOException {
+        List<DocStruct> docs = new ArrayList<>();
+        List<String> lines = Files.readAllLines(Paths.get(cranfieldPath));
+
+        String id = "", title = "", author = "", bib = "", body = "";
+        String currentTag = "";
+
+        for (String rawLine : lines) {
+            String line = rawLine;
+            if (line.startsWith(".I")) {
+                // save previous
+                if (!id.isEmpty()) {
+                    docs.add(new DocStruct(id.trim(), title.trim(), author.trim(), bib.trim(), body.trim()));
+                    title = author = bib = body = "";
+                }
+                id = line.substring(3).trim(); // after ".I "
+                currentTag = "";
+            } else if (line.startsWith(".T")) {
+                currentTag = "T";
+            } else if (line.startsWith(".A")) {
+                currentTag = "A";
+            } else if (line.startsWith(".B")) {
+                currentTag = "B";
+            } else if (line.startsWith(".W")) {
+                currentTag = "W";
+            } else {
+                // content line
+                if (currentTag.equals("T")) {
+                    title += line + " ";
+                } else if (currentTag.equals("A")) {
+                    author += line + " ";
+                } else if (currentTag.equals("B")) {
+                    bib += line + " ";
+                } else if (currentTag.equals("W")) {
+                    body += line + " ";
+                } // else ignore
+            }
+        }
+        // last doc
+        if (!id.isEmpty()) {
+            docs.add(new DocStruct(id.trim(), title.trim(), author.trim(), bib.trim(), body.trim()));
+        }
         return docs;
     }
 
     // -----------------------------
-    // Main: Index Cranfield Documents
+    // Parse queries file cran.qry
+    // Format example:
+    // .I 1
+    // .W
+    // what is similarity ...
+    // .I 2
+    // ...
     // -----------------------------
-    public static void main(String[] args) throws IOException {
-        Analyzer analyzer = new StandardAnalyzer();
-        Directory directory = FSDirectory.open(Paths.get(INDEX_DIRECTORY));
-        IndexWriterConfig config = new IndexWriterConfig(analyzer);
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
+    private static Map<String, String> parseCranfieldQueries(String qpath) throws IOException {
+        Map<String, String> queries = new HashMap<>();
+        List<String> lines = Files.readAllLines(Paths.get(qpath));
 
-        IndexWriter iwriter = new IndexWriter(directory, config);
+        String currentId = null;
+        String currentTag = "";
+        StringBuilder currentText = new StringBuilder();
 
-        // Parse Cranfield dataset
-        List<documentStruc> docs = parseCranfieldDocument(CRAN);
-
-        for (documentStruc d : docs) {
-            Document doc = new Document();
-            doc.add(new TextField("id", d.getId(), Field.Store.YES));
-            doc.add(new TextField("title", d.getTitle(), Field.Store.YES));
-            doc.add(new TextField("author", d.getAuthor(), Field.Store.YES));
-            doc.add(new TextField("bib", d.getBib(), Field.Store.YES));
-            doc.add(new TextField("body", d.getBody(), Field.Store.YES));
-            iwriter.addDocument(doc);
+        for (String raw : lines) {
+            String line = raw;
+            if (line.startsWith(".I")) {
+                if (currentId != null) {
+                    queries.put(currentId, currentText.toString().trim());
+                    currentText.setLength(0);
+                }
+                currentId = line.substring(3).trim();
+                currentTag = "";
+            } else if (line.startsWith(".W")) {
+                currentTag = "W";
+            } else {
+                if ("W".equals(currentTag) && currentId != null) {
+                    currentText.append(line).append(" ");
+                }
+            }
         }
-
-        iwriter.close();
-        directory.close();
-
-        System.out.println("Indexed " + docs.size() + " Cranfield documents.");
+        if (currentId != null) {
+            queries.put(currentId, currentText.toString().trim());
+        }
+        return queries;
     }
 
     // -----------------------------
-    // Inner Class: documentStruc
+    // Parse qrels: format "qid docno rel" (space separated)
+    // We'll store for each qid the set of relevant docnos (strings)
     // -----------------------------
-    public static class documentStruc {
-        private String id;
-        private String title;
-        private String author;
-        private String bib;
-        private String body;
+    private static Map<String, Set<String>> parseQrels(String qrelPath) throws IOException {
+        Map<String, Set<String>> qrels = new HashMap<>();
+        List<String> lines = Files.readAllLines(Paths.get(qrelPath));
+        for (String l : lines) {
+            l = l.trim();
+            if (l.isEmpty()) continue;
+            String[] parts = l.split("\\s+");
+            if (parts.length < 3) continue;
+            String qid = parts[0];
+            String docno = parts[1];
+            // String rel = parts[2]; // relevance code (1-5) but we treat all present as relevant
+            qrels.computeIfAbsent(qid, k -> new HashSet<>()).add(docno);
+        }
+        return qrels;
+    }
 
-        public documentStruc(String id, String title, String author, String bib, String body) {
+    // -----------------------------
+    // Small arg parser
+    // -----------------------------
+    private static Map<String, String> parseArgs(String[] args) {
+        Map<String, String> amap = new HashMap<>();
+        for (int i = 0; i < args.length; i++) {
+            String a = args[i];
+            if (a.startsWith("--")) {
+                String key = a.substring(2);
+                if (i + 1 < args.length && !args[i+1].startsWith("--")) {
+                    amap.put(key, args[i+1]);
+                    i++;
+                } else {
+                    amap.put(key, "true");
+                }
+            }
+        }
+        return amap;
+    }
+
+    // -----------------------------
+    // Document container
+    // -----------------------------
+    private static class DocStruct {
+        String id;
+        String title;
+        String author;
+        String bib;
+        String body;
+        DocStruct(String id, String title, String author, String bib, String body) {
             this.id = id;
             this.title = title;
             this.author = author;
             this.bib = bib;
             this.body = body;
         }
-
-        public String getId() { return id; }
-        public String getTitle() { return title; }
-        public String getAuthor() { return author; }
-        public String getBib() { return bib; }
-        public String getBody() { return body; }
     }
 }
