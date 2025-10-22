@@ -29,152 +29,271 @@ public class Main {
     // Top-K to retrieve per query
     private static final int TOP_K = 50;
 
+    // public static void main(String[] args) throws Exception {
+    //     // Simple arg parsing
+
+    //     Map<String, String> amap = parseArgs(args);
+    //     if (amap.containsKey("cran")) CRAN_PATH = amap.get("cran");
+    //     if (amap.containsKey("queries")) QUERIES_PATH = amap.get("queries");
+    //     if (amap.containsKey("qrels")) QRELS_PATH = amap.get("qrels");
+    //     if (amap.containsKey("index")) INDEX_DIR = amap.get("index");
+    //     String similarityChoice = amap.getOrDefault("similarity", "bm25").toLowerCase();
+    //     String analyzerChoice = amap.getOrDefault("analyzer", "english").toLowerCase();
+
+    //     System.out.println("Cranfile: " + CRAN_PATH);
+    //     System.out.println("Queries: " + QUERIES_PATH);
+    //     System.out.println("Qrels: " + QRELS_PATH);
+    //     System.out.println("Index dir: " + INDEX_DIR);
+    //     System.out.println("Similarity: " + similarityChoice);
+    //     System.out.println("Analyzer: " + analyzerChoice);
+
+    //     // Choose analyzer
+    //     Analyzer analyzer;
+    //     switch (analyzerChoice) {
+    //         case "standard":
+    //             analyzer = new StandardAnalyzer();
+    //             break;
+    //         case "english":
+    //         default:
+    //             analyzer = new EnglishAnalyzer(); // includes stopwords + Porter stemming
+    //             break;
+    //     }
+
+    //     // Parse documents
+    //     List<DocStruct> docs = parseCranfieldDocument(CRAN_PATH);
+    //     System.out.printf("Parsed %d documents from Cranfield.\n", docs.size());
+
+    //     // Index documents
+    //     indexDocuments(docs, INDEX_DIR, analyzer);
+
+    //     // Parse queries and qrels
+    //     Map<String, String> queries = parseCranfieldQueries(QUERIES_PATH);
+    //     System.out.printf("Parsed %d queries.\n", queries.size());
+
+    //     Map<String, Set<String>> qrels = parseQrels(QRELS_PATH);
+    //     System.out.printf("Parsed qrels for %d queries.\n", qrels.size());
+
+    //     // Prepare searcher
+    //     Directory dir = FSDirectory.open(Paths.get(INDEX_DIR));
+    //     DirectoryReader reader = DirectoryReader.open(dir);
+    //     IndexSearcher searcher = new IndexSearcher(reader);
+
+    //     // Set similarity
+    //     if (similarityChoice.equals("bm25")) {
+    //         searcher.setSimilarity(new BM25Similarity());
+    //     } else if (similarityChoice.equals("tfidf") || similarityChoice.equals("vsm")) {
+    //         searcher.setSimilarity(new ClassicSimilarity()); // Lucene's TF-IDF implementation
+    //     } else {
+    //         System.out.println("Unknown similarity, using BM25.");
+    //         searcher.setSimilarity(new BM25Similarity());
+    //     }
+
+    //     // Multi-field query over "title" and "body" (we index both)
+    //     String[] searchFields = new String[] { "title", "body" };
+    //     MultiFieldQueryParser mfqp = new MultiFieldQueryParser(searchFields, analyzer);
+
+    //     // Results file to write TREC formatted lines
+    //     BufferedWriter resultsWriter = new BufferedWriter(new FileWriter(RESULTS_FILE));
+
+    //     // For MAP & recall calculation
+    //     double sumAvgPrecision = 0.0;
+    //     int queriesWithAtLeastOneRelevant = 0;
+    //     double sumRecallAt50 = 0.0;
+    //     int processedQueries = 0;
+
+    //     List<String> sortedQueryIds = new ArrayList<>(queries.keySet());
+    //     Collections.sort(sortedQueryIds, Comparator.comparingInt(Integer::parseInt)); // ensure numeric order
+
+    //     for (String qid : sortedQueryIds) {
+    //         processedQueries++;
+    //         String qtext = queries.get(qid);
+    //         if (qtext == null || qtext.trim().isEmpty()) continue;
+
+    //         Query luceneQuery = mfqp.parse(QueryParser.escape(qtext));
+
+    //         TopDocs topDocs = searcher.search(luceneQuery, TOP_K);
+    //         ScoreDoc[] hits = topDocs.scoreDocs;
+
+    //         // write TREC-format results: query_id Q0 docno rank score myRunTag
+    //         for (int rank = 0; rank < hits.length; rank++) {
+    //             Document doc = searcher.storedFields().document(hits[rank].doc);
+    //             String docno = doc.get("id");
+    //             float score = hits[rank].score;
+    //             // TREC format
+    //             String line = String.format("%s Q0 %s %d %.6f %s", qid, docno, rank+1, score, RUN_TAG);
+    //             resultsWriter.write(line);
+    //             resultsWriter.newLine();
+    //         }
+
+    //         // Compute Average Precision for this query using qrels
+    //         Set<String> relevant = qrels.getOrDefault(qid, Collections.emptySet());
+    //         if (relevant.size() > 0) {
+    //             queriesWithAtLeastOneRelevant++;
+    //         }
+
+    //         // iterate retrieved and accumulate for AP
+    //         int numRelRetrieved = 0;
+    //         double sumPrecisionAtRel = 0.0;
+    //         for (int rank = 0; rank < hits.length; rank++) {
+    //             Document doc = searcher.storedFields().document(hits[rank].doc);
+    //             String docno = doc.get("id");
+    //             if (relevant.contains(docno)) {
+    //                 numRelRetrieved++;
+    //                 double precisionAtK = (double) numRelRetrieved / (rank + 1);
+    //                 sumPrecisionAtRel += precisionAtK;
+    //             }
+    //         }
+    //         double avgPrecision = 0.0;
+    //         if (relevant.size() > 0) {
+    //             avgPrecision = sumPrecisionAtRel / (double) relevant.size();
+    //         }
+    //         sumAvgPrecision += avgPrecision;
+
+    //         // Recall@50 = number of relevant in top50 / total relevant for that query
+    //         double recallAt50 = 0.0;
+    //         if (relevant.size() > 0) {
+    //             int relInTopK = 0;
+    //             for (ScoreDoc sd : hits) {
+    //                 Document doc = searcher.storedFields().document(sd.doc);
+    //                 if (relevant.contains(doc.get("id"))) relInTopK++;
+    //             }
+    //             recallAt50 = (double) relInTopK / (double) relevant.size();
+    //             sumRecallAt50 += recallAt50;
+    //         }
+    //     }
+
+    //     resultsWriter.close();
+    //     reader.close();
+    //     dir.close();
+
+    //     double MAP = sumAvgPrecision / (double) processedQueries;
+    //     double meanRecallAt50 = sumRecallAt50 / (double) processedQueries; // note: queries without qrels counted as 0 recall
+
+    //     System.out.println("==== Evaluation (computed in Java) ====");
+    //     System.out.printf("Processed queries: %d\n", processedQueries);
+    //     System.out.printf("MAP (over all queries) = %.6f\n", MAP);
+    //     System.out.printf("Mean Recall@%d = %.6f\n", TOP_K, meanRecallAt50);
+    //     System.out.println("TREC-style results written to: " + RESULTS_FILE);
+    //     System.out.println("You can run trec_eval externally: ./trec_eval <qrels> " + RESULTS_FILE);
+    // }
+
     public static void main(String[] args) throws Exception {
-        // Simple arg parsing
-        Map<String, String> amap = parseArgs(args);
-        if (amap.containsKey("cran")) CRAN_PATH = amap.get("cran");
-        if (amap.containsKey("queries")) QUERIES_PATH = amap.get("queries");
-        if (amap.containsKey("qrels")) QRELS_PATH = amap.get("qrels");
-        if (amap.containsKey("index")) INDEX_DIR = amap.get("index");
-        String similarityChoice = amap.getOrDefault("similarity", "bm25").toLowerCase();
-        String analyzerChoice = amap.getOrDefault("analyzer", "english").toLowerCase();
 
-        System.out.println("Cranfile: " + CRAN_PATH);
-        System.out.println("Queries: " + QUERIES_PATH);
-        System.out.println("Qrels: " + QRELS_PATH);
-        System.out.println("Index dir: " + INDEX_DIR);
-        System.out.println("Similarity: " + similarityChoice);
-        System.out.println("Analyzer: " + analyzerChoice);
+    // Define analyzers
+    Map<String, Analyzer> analyzers = new LinkedHashMap<>();
+    analyzers.put("standard", new StandardAnalyzer());
+    analyzers.put("english", new EnglishAnalyzer());
+    analyzers.put("whitespace", new org.apache.lucene.analysis.core.WhitespaceAnalyzer());
 
-        // Choose analyzer
-        Analyzer analyzer;
-        switch (analyzerChoice) {
-            case "standard":
-                analyzer = new StandardAnalyzer();
-                break;
-            case "english":
-            default:
-                analyzer = new EnglishAnalyzer(); // includes stopwords + Porter stemming
-                break;
+    // Define similarities
+    Map<String, Similarity> similarities = new LinkedHashMap<>();
+    similarities.put("bm25", new BM25Similarity());
+    similarities.put("tfidf", new ClassicSimilarity());
+    similarities.put("dirichlet", new LMDirichletSimilarity());
+
+    // Parse documents once
+    List<DocStruct> docs = parseCranfieldDocument(CRAN_PATH);
+    System.out.printf("Parsed %d Cranfield documents.\n", docs.size());
+
+    // Parse queries & qrels once
+    Map<String, String> queries = parseCranfieldQueries(QUERIES_PATH);
+    Map<String, Set<String>> qrels = parseQrels(QRELS_PATH);
+
+    // Loop over each analyzer-similarity combination
+    for (String analyzerName : analyzers.keySet()) {
+        for (String simName : similarities.keySet()) {
+
+            Analyzer analyzer = analyzers.get(analyzerName);
+            Similarity similarity = similarities.get(simName);
+
+            String comboTag = analyzerName + "_" + simName;
+            String indexDir = INDEX_DIR + "_" + comboTag;
+            String resultFile = "results_" + comboTag + ".txt";
+            String runTag = comboTag;
+
+            System.out.println("\n==============================");
+            System.out.printf("Running combination: %s + %s\n", analyzerName, simName);
+            System.out.println("==============================");
+
+            // 1. Index documents
+            indexDocuments(docs, indexDir, analyzer);
+
+            // 2. Search and evaluate
+            evaluateCombination(indexDir, analyzer, similarity, queries, qrels, resultFile, runTag);
         }
-
-        // Parse documents
-        List<DocStruct> docs = parseCranfieldDocument(CRAN_PATH);
-        System.out.printf("Parsed %d documents from Cranfield.\n", docs.size());
-
-        // Index documents
-        indexDocuments(docs, INDEX_DIR, analyzer);
-
-        // Parse queries and qrels
-        Map<String, String> queries = parseCranfieldQueries(QUERIES_PATH);
-        System.out.printf("Parsed %d queries.\n", queries.size());
-
-        Map<String, Set<String>> qrels = parseQrels(QRELS_PATH);
-        System.out.printf("Parsed qrels for %d queries.\n", qrels.size());
-
-        // Prepare searcher
-        Directory dir = FSDirectory.open(Paths.get(INDEX_DIR));
-        DirectoryReader reader = DirectoryReader.open(dir);
-        IndexSearcher searcher = new IndexSearcher(reader);
-
-        // Set similarity
-        if (similarityChoice.equals("bm25")) {
-            searcher.setSimilarity(new BM25Similarity());
-        } else if (similarityChoice.equals("tfidf") || similarityChoice.equals("vsm")) {
-            searcher.setSimilarity(new ClassicSimilarity()); // Lucene's TF-IDF implementation
-        } else {
-            System.out.println("Unknown similarity, using BM25.");
-            searcher.setSimilarity(new BM25Similarity());
-        }
-
-        // Multi-field query over "title" and "body" (we index both)
-        String[] searchFields = new String[] { "title", "body" };
-        MultiFieldQueryParser mfqp = new MultiFieldQueryParser(searchFields, analyzer);
-
-        // Results file to write TREC formatted lines
-        BufferedWriter resultsWriter = new BufferedWriter(new FileWriter(RESULTS_FILE));
-
-        // For MAP & recall calculation
-        double sumAvgPrecision = 0.0;
-        int queriesWithAtLeastOneRelevant = 0;
-        double sumRecallAt50 = 0.0;
-        int processedQueries = 0;
-
-        List<String> sortedQueryIds = new ArrayList<>(queries.keySet());
-        Collections.sort(sortedQueryIds, Comparator.comparingInt(Integer::parseInt)); // ensure numeric order
-
-        for (String qid : sortedQueryIds) {
-            processedQueries++;
-            String qtext = queries.get(qid);
-            if (qtext == null || qtext.trim().isEmpty()) continue;
-
-            Query luceneQuery = mfqp.parse(QueryParser.escape(qtext));
-
-            TopDocs topDocs = searcher.search(luceneQuery, TOP_K);
-            ScoreDoc[] hits = topDocs.scoreDocs;
-
-            // write TREC-format results: query_id Q0 docno rank score myRunTag
-            for (int rank = 0; rank < hits.length; rank++) {
-                Document doc = searcher.storedFields().document(hits[rank].doc);
-                String docno = doc.get("id");
-                float score = hits[rank].score;
-                // TREC format
-                String line = String.format("%s Q0 %s %d %.6f %s", qid, docno, rank+1, score, RUN_TAG);
-                resultsWriter.write(line);
-                resultsWriter.newLine();
-            }
-
-            // Compute Average Precision for this query using qrels
-            Set<String> relevant = qrels.getOrDefault(qid, Collections.emptySet());
-            if (relevant.size() > 0) {
-                queriesWithAtLeastOneRelevant++;
-            }
-
-            // iterate retrieved and accumulate for AP
-            int numRelRetrieved = 0;
-            double sumPrecisionAtRel = 0.0;
-            for (int rank = 0; rank < hits.length; rank++) {
-                Document doc = searcher.storedFields().document(hits[rank].doc);
-                String docno = doc.get("id");
-                if (relevant.contains(docno)) {
-                    numRelRetrieved++;
-                    double precisionAtK = (double) numRelRetrieved / (rank + 1);
-                    sumPrecisionAtRel += precisionAtK;
-                }
-            }
-            double avgPrecision = 0.0;
-            if (relevant.size() > 0) {
-                avgPrecision = sumPrecisionAtRel / (double) relevant.size();
-            }
-            sumAvgPrecision += avgPrecision;
-
-            // Recall@50 = number of relevant in top50 / total relevant for that query
-            double recallAt50 = 0.0;
-            if (relevant.size() > 0) {
-                int relInTopK = 0;
-                for (ScoreDoc sd : hits) {
-                    Document doc = searcher.storedFields().document(sd.doc);
-                    if (relevant.contains(doc.get("id"))) relInTopK++;
-                }
-                recallAt50 = (double) relInTopK / (double) relevant.size();
-                sumRecallAt50 += recallAt50;
-            }
-        }
-
-        resultsWriter.close();
-        reader.close();
-        dir.close();
-
-        double MAP = sumAvgPrecision / (double) processedQueries;
-        double meanRecallAt50 = sumRecallAt50 / (double) processedQueries; // note: queries without qrels counted as 0 recall
-
-        System.out.println("==== Evaluation (computed in Java) ====");
-        System.out.printf("Processed queries: %d\n", processedQueries);
-        System.out.printf("MAP (over all queries) = %.6f\n", MAP);
-        System.out.printf("Mean Recall@%d = %.6f\n", TOP_K, meanRecallAt50);
-        System.out.println("TREC-style results written to: " + RESULTS_FILE);
-        System.out.println("You can run trec_eval externally: ./trec_eval <qrels> " + RESULTS_FILE);
     }
+
+    System.out.println("\n✅ All combinations completed. Check generated results_*.txt files.");
+}
+
+// --- Evaluate one analyzer + similarity combo ---
+private static void evaluateCombination(String indexDir, Analyzer analyzer, Similarity sim,
+                                        Map<String, String> queries,
+                                        Map<String, Set<String>> qrels,
+                                        String resultFile, String runTag) throws Exception {
+
+    Directory dir = FSDirectory.open(Paths.get(indexDir));
+    DirectoryReader reader = DirectoryReader.open(dir);
+    IndexSearcher searcher = new IndexSearcher(reader);
+    searcher.setSimilarity(sim);
+
+    MultiFieldQueryParser parser = new MultiFieldQueryParser(new String[]{"title", "body"}, analyzer);
+    BufferedWriter resultsWriter = new BufferedWriter(new FileWriter(resultFile));
+
+    double sumAvgPrecision = 0.0;
+    double sumRecallAt50 = 0.0;
+    int queryCount = 0;
+
+    for (String qid : new TreeSet<>(queries.keySet())) {
+        String qtext = queries.get(qid);
+        if (qtext == null || qtext.isEmpty()) continue;
+        Query query = parser.parse(QueryParser.escape(qtext));
+        TopDocs topDocs = searcher.search(query, 50);
+        ScoreDoc[] hits = topDocs.scoreDocs;
+
+        // Write TREC-style output
+        for (int rank = 0; rank < hits.length; rank++) {
+            Document doc = searcher.getIndexReader().document(hits[rank].doc);
+            String docno = doc.get("id");
+            resultsWriter.write(String.format("%s Q0 %s %d %.6f %s\n",
+                    qid, docno, rank + 1, hits[rank].score, runTag));
+        }
+
+        // Compute evaluation
+        Set<String> relevant = qrels.getOrDefault(qid, Collections.emptySet());
+        if (!relevant.isEmpty()) {
+            queryCount++;
+            int relRetrieved = 0;
+            double sumPrecAtRel = 0.0;
+            for (int rank = 0; rank < hits.length; rank++) {
+                Document doc = searcher.getIndexReader().document(hits[rank].doc);
+                if (relevant.contains(doc.get("id"))) {
+                    relRetrieved++;
+                    sumPrecAtRel += (double) relRetrieved / (rank + 1);
+                }
+            }
+            sumAvgPrecision += (relevant.isEmpty() ? 0 : sumPrecAtRel / relevant.size());
+            long relInTop50 = Arrays.stream(hits)
+                    .filter(sd -> {
+                        try {
+                            return relevant.contains(searcher.getIndexReader().document(sd.doc).get("id"));
+                        } catch (IOException e) { return false; }
+                    }).count();
+            sumRecallAt50 += (double) relInTop50 / relevant.size();
+        }
+    }
+
+    resultsWriter.close();
+    reader.close();
+    dir.close();
+
+    double MAP = (queryCount == 0) ? 0 : sumAvgPrecision / queryCount;
+    double meanRecall = (queryCount == 0) ? 0 : sumRecallAt50 / queryCount;
+
+    System.out.printf("Combo %-20s | MAP = %.4f | Recall@50 = %.4f | Results: %s\n",
+            runTag, MAP, meanRecall, resultFile);
+}
+
 
     // -----------------------------
     // Indexing
