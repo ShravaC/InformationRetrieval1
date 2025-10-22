@@ -1,4 +1,4 @@
-package java.org.cranfield
+package org.cranfield;
 /* CranfieldSearchEngine.java
  *
  * Single-file program to:
