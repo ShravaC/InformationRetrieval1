@@ -74,13 +74,13 @@ import java.util.Scanner;
  */
 public class CranFieldParserIndexer {
 
-    private static final Path INDEX_PATH = Paths.get("index");
+    private static final String ROOT_INDEX_PATH = "index/";
+    private static final Path INTERACTIVE_INDEX_PATH =  Paths.get(ROOT_INDEX_PATH+"index");
     private static final String CRAN_FILE = "cran/cran.all.1400";
 
-    // Default retrieval depth for evaluation
     private static final int DEFAULT_TOP_K = 100;
 
-    static class CranFieldDocument {
+    public static class CranFieldDocument {
         public String id = "";
         public String title = "";
         public String author = "";
@@ -88,9 +88,6 @@ public class CranFieldParserIndexer {
         public String body = "";
     }
 
-    // --------------------------
-    // Parsing cran.all
-    // --------------------------
     public static List<CranFieldDocument> parseCranField(File cranAll) throws IOException {
         List<CranFieldDocument> docs = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new FileReader(cranAll))) {
@@ -136,9 +133,6 @@ public class CranFieldParserIndexer {
         }
     }
 
-    // --------------------------
-    // Build index with chosen analyzer
-    // --------------------------
     public static void buildIndex(Path indexPath, List<CranFieldDocument> docs, Analyzer analyzer) throws Exception {
         var dir = FSDirectory.open(indexPath);
         IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
@@ -206,7 +200,6 @@ public class CranFieldParserIndexer {
             BooleanQuery.Builder combined = new BooleanQuery.Builder();
             combined.add(mainQuery, BooleanClause.Occur.MUST);
             if (!authorFilter.isEmpty()) {
-                // NOTE: lowercasing depends on analyzer; TermQuery expects exact token; we use a simpler approach:
                 combined.add(new TermQuery(new Term("author", authorFilter)), BooleanClause.Occur.FILTER);
             }
             if (!titleFilter.isEmpty()) {
@@ -227,9 +220,6 @@ public class CranFieldParserIndexer {
         }
     }
 
-    // --------------------------
-    // Load queries from cran.qry-like file (.I and .W)
-    // --------------------------
     public static LinkedHashMap<String, String> loadQueries(String queriesFile) throws IOException {
         LinkedHashMap<String, String> queries = new LinkedHashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(queriesFile))) {
@@ -255,9 +245,6 @@ public class CranFieldParserIndexer {
         return queries;
     }
 
-    // --------------------------
-    // Load qrels (TREC qrel-like): "<qid> 0 <docid> <rel>"
-    // --------------------------
     public static Map<String, Map<String, Integer>> loadQrels(String qrelFile) throws IOException {
         Map<String, Map<String, Integer>> qrels = new HashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(qrelFile))) {
@@ -276,9 +263,6 @@ public class CranFieldParserIndexer {
         return qrels;
     }
 
-    // --------------------------
-    // Generate TREC format results (writes file)
-    // --------------------------
     public static void generateTrecResults(IndexSearcher searcher, Analyzer analyzer, String queriesFile, String outputFile,
                                            int topK, float titleBoost, float bodyBoost) throws Exception {
         LinkedHashMap<String, String> queries = loadQueries(queriesFile);
@@ -343,7 +327,6 @@ public class CranFieldParserIndexer {
         return new double[]{precision, recall, f1};
     }
 
-    // Compute interpolated precision at 11 recall levels for one query
     public static double[] interpolatedPrecisionRecall(List<String> retrieved, Map<String, Integer> relevantMap) {
         // Build precision-recall curve at each rank
         List<Double> precisions = new ArrayList<>();
@@ -447,9 +430,6 @@ public class CranFieldParserIndexer {
         System.out.println("Detailed per-query metrics saved to evaluation_details.txt");
     }
 
-    // --------------------------
-    // Helper: create IndexSearcher with selected similarity
-    // --------------------------
     public static IndexSearcher makeSearcherWithSimilarity(IndexReader reader, int simChoice) {
         IndexSearcher searcher = new IndexSearcher(reader);
         switch (simChoice) {
@@ -469,9 +449,6 @@ public class CranFieldParserIndexer {
         return searcher;
     }
 
-    // --------------------------
-// Run all analyzer × similarity combinations automatically
-// --------------------------
     public static void runAllCombinations(String cranFile, String queriesFile, String qrelsFile) throws Exception {
         List<Analyzer> analyzers = List.of(
                 new StandardAnalyzer(),
@@ -481,7 +458,7 @@ public class CranFieldParserIndexer {
         );
 
         String[] analyzerNames = {"StandardAnalyzer", "EnglishAnalyzer", "SimpleAnalyzer", "WhitespaceAnalyzer"};
-        int[] similarities = {1, 2, 3, 4}; // Classic, BM25, Dirichlet, Jelinek-Mercer
+        int[] similarities = {1, 2, 3, 4};
         String[] simNames = {"TFIDF", "BM25", "LMDirichlet", "LMJelinekMercer"};
 
         List<CranFieldDocument> docs = parseCranField(new File(cranFile));
@@ -495,7 +472,7 @@ public class CranFieldParserIndexer {
                 int simChoice = similarities[s];
                 String simName = simNames[s];
 
-                String indexDirName = "index_" + analyzerName + "_" + simName;
+                String indexDirName = ROOT_INDEX_PATH + "index_" + analyzerName + "_" + simName;
                 Path indexPath = Paths.get(indexDirName);
 
                 System.out.println("\n=== Running combo: " + analyzerName + " + " + simName + " ===");
@@ -507,9 +484,13 @@ public class CranFieldParserIndexer {
                 try (IndexReader reader = DirectoryReader.open(FSDirectory.open(indexPath))) {
                     IndexSearcher searcher = makeSearcherWithSimilarity(reader, simChoice);
 
+                    String resultsPath =  "output/results";
+                    File resultsFolder = new File(resultsPath);
+                    if (!resultsFolder.exists()) resultsFolder.mkdirs();
+
                     // results file per combination
-                    String resultFile = String.format("results/%s_%s_results.txt", analyzerName, simName);
-                    String evalFile = String.format("results/%s_%s_eval.txt", analyzerName, simName);
+                    String resultFile = String.format(resultsPath+"/%s_%s_results.txt", analyzerName, simName);
+                    String evalFile = String.format(resultsPath+"/%s_%s_eval.txt", analyzerName, simName);
 
                     // generate TREC results
                     generateTrecResults(searcher, analyzer, queriesFile, resultFile, DEFAULT_TOP_K, 2.0f, 1.0f);
@@ -524,12 +505,12 @@ public class CranFieldParserIndexer {
                         evalDetails.renameTo(new File(evalFile));
                     }
 
-                    // ---------- AUTOMATE TREC_EVAL ----------
-                    File trecFolder = new File("eval_trec");
-                    if (!trecFolder.exists()) trecFolder.mkdirs(); // ensure folder exists
+                    String trecEvalPath =  "output/trec_eval";
+                    File trecFolder = new File(trecEvalPath);
+                    if (!trecFolder.exists()) trecFolder.mkdirs();
 
-                    String trecEvalOutput = String.format("eval_trec/%s_%s_trec.txt", analyzerName, simName);
-                    String internalEvalOutput = String.format("eval_trec/%s_%s_internal.txt", analyzerName, simName);
+                    String trecEvalOutput = String.format(trecEvalPath+"%s_%s_trec.txt", analyzerName, simName);
+                    String internalEvalOutput = String.format(trecEvalPath+"%s_%s_internal.txt", analyzerName, simName);
 
                     File trecEvalDetail = new File("evaluation_details.txt");
                     if (trecEvalDetail.exists()) {
@@ -546,7 +527,7 @@ public class CranFieldParserIndexer {
                         }
                     }
                     p.waitFor();
-                    System.out.println("✅ TREC_EVAL done: " + trecEvalOutput);
+                    System.out.println("TREC_EVAL done: " + trecEvalOutput);
                 }
             }
         }
@@ -567,81 +548,59 @@ public class CranFieldParserIndexer {
 
         Scanner sc = new Scanner(System.in);
 
-        // Choose analyzer & index
-        Analyzer analyzer = chooseAnalyzer(sc);
-        System.out.println("Parsing cran.all ...");
-        List<CranFieldDocument> docs = parseCranField(cran);
-        System.out.println("Parsed documents: " + docs.size());
-        System.out.println("Building index using analyzer: " + analyzer.getClass().getSimpleName());
-        buildIndex(INDEX_PATH, docs, analyzer);
-        System.out.println("Index built at: " + INDEX_PATH.toAbsolutePath());
+        mainLoop:
+        while (true) {
+            System.out.println("\n--- Menu ---");
+            System.out.println("1: Interactive search");
+            System.out.println("2: Run all Analyzer+Similarity Evaluation");
+            System.out.println("3: Exit");
+            System.out.print("> ");
+            String choice = sc.nextLine().trim();
+            switch (choice) {
+                case "1":
+                    // Choose analyzer & index
+                    Analyzer analyzer = chooseAnalyzer(sc);
+                    System.out.println("Parsing cran.all ...");
+                    List<CranFieldDocument> docs = parseCranField(cran);
+                    System.out.println("Parsed documents: " + docs.size());
+                    System.out.println("Building index using analyzer: " + analyzer.getClass().getSimpleName());
+                    buildIndex(INTERACTIVE_INDEX_PATH, docs, analyzer);
+                    System.out.println("Index built at: " + INTERACTIVE_INDEX_PATH.toAbsolutePath());
 
-        // interactive configuration: boosts and similarity
-        System.out.print("Title boost (default 2.0) : ");
-        String tb = sc.nextLine().trim();
-        float titleBoost = tb.isEmpty() ? 2.0f : Float.parseFloat(tb);
+                    // interactive configuration: boosts and similarity
+                    System.out.print("Title boost (default 2.0) : ");
+                    String tb = sc.nextLine().trim();
+                    float titleBoost = tb.isEmpty() ? 2.0f : Float.parseFloat(tb);
 
-        System.out.print("Body boost (default 1.0)  : ");
-        String bb = sc.nextLine().trim();
-        float bodyBoost = bb.isEmpty() ? 1.0f : Float.parseFloat(bb);
+                    System.out.print("Body boost (default 1.0)  : ");
+                    String bb = sc.nextLine().trim();
+                    float bodyBoost = bb.isEmpty() ? 1.0f : Float.parseFloat(bb);
 
-        System.out.println("Choose Scoring Method (default 2 = BM25):");
-        System.out.println("1: TF-IDF (ClassicSimilarity)");
-        System.out.println("2: BM25 (BM25Similarity)");
-        System.out.println("3: LM Dirichlet (LMDirichletSimilarity)");
-        System.out.println("4: LM Jelinek-Mercer (LMJelinekMercerSimilarity)");
-        System.out.print("> ");
-        String simChoiceStr = sc.nextLine().trim();
-        int simChoice = simChoiceStr.isEmpty() ? 2 : Integer.parseInt(simChoiceStr);
+                    System.out.println("Choose Scoring Method (default 2 = BM25):");
+                    System.out.println("1: TF-IDF (ClassicSimilarity)");
+                    System.out.println("2: BM25 (BM25Similarity)");
+                    System.out.println("3: LM Dirichlet (LMDirichletSimilarity)");
+                    System.out.println("4: LM Jelinek-Mercer (LMJelinekMercerSimilarity)");
+                    System.out.print("> ");
+                    String simChoiceStr = sc.nextLine().trim();
+                    int simChoice = simChoiceStr.isEmpty() ? 2 : Integer.parseInt(simChoiceStr);
 
-        // Open reader & searcher with selected similarity
-        try (IndexReader reader = DirectoryReader.open(FSDirectory.open(INDEX_PATH))) {
-            IndexSearcher searcher = makeSearcherWithSimilarity(reader, simChoice);
-
-            mainLoop:
-            while (true) {
-                System.out.println("\n--- Menu ---");
-                System.out.println("1: Interactive search");
-                System.out.println("2: Generate TREC results for queries and also run internal evaluation");
-                System.out.println("3: Just generate TREC results");
-                System.out.println("4: Run all analyzer × similarity combinations automatically");
-                System.out.println("5: Exit");
-                System.out.print("> ");
-                String choice = sc.nextLine().trim();
-                switch (choice) {
-                    case "1":
+                    try (IndexReader reader = DirectoryReader.open(FSDirectory.open(INTERACTIVE_INDEX_PATH))) {
+                        IndexSearcher searcher = makeSearcherWithSimilarity(reader, simChoice);
                         interactiveSearch(searcher, analyzer, sc, titleBoost, bodyBoost);
-                        break;
-                    case "2":
-                    case "3":
-                        System.out.print("Path to queries file : cran/cran.qry");
-                        String queriesFile = "cran/cran.qry";
-                        System.out.print("Path to qrels file: cran/cranqrel");
-                        String qrelsFile = "cran/cranqrel";
-                        System.out.print("Output TREC results file path: results/results.txt ");
-                        String outputFile = "results/results.txt";
-                        System.out.print("Top-K retrieval depth (default 100) : ");
-                        String topkStr = sc.nextLine().trim();
-                        int topK = topkStr.isEmpty() ? DEFAULT_TOP_K : Integer.parseInt(topkStr);
 
-                        // generate trec results
-                        generateTrecResults(searcher, analyzer, queriesFile, outputFile, topK, titleBoost, bodyBoost);
+                        generateTrecResults(searcher, analyzer, "cran/cran.qry", "output/interactive/results.txt", 100, titleBoost, bodyBoost);
 
-                        // If option 2, run internal evaluation as well
-                        if (choice.equals("2")) {
-                            System.out.println("Running internal evaluation (Precision/Recall/MAP/Interpolated P-R) ...");
-                            runInternalEvaluation(searcher, analyzer, queriesFile, qrelsFile, topK, titleBoost, bodyBoost);
-                            System.out.println("\nYou can also run trec_eval externally:");
-                            System.out.println("trec_eval " + qrelsFile + " " + outputFile);
-                        }
-                        break;
-                    case "4":
-                        runAllCombinations(CRAN_FILE, "cran/cran.qry", "cran/cranqrel");
-                        break;
-                    default:
-                        break mainLoop;
-                }
+                    }
+
+                    break;
+                case "2":
+                    runAllCombinations(CRAN_FILE, "cran/cran.qry", "cran/cranqrel");
+                    break;
+                default:
+                    break mainLoop;
             }
+
         }
 
         System.out.println("Done. Exiting.");
