@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.cranfield</groupId>
     <artifactId>cranfield</artifactId>
-    <version></version>
+    <version>1</version>
     <packaging>jar</packaging>
 
     <properties>
