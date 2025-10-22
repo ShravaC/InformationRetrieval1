@@ -226,6 +226,35 @@ public class Main {
     System.out.println("\n✅ All combinations completed. Check generated results_*.txt files.");
 }
 
+private static void runTrecEval(String qrelsPath, String resultFile) {
+    try {
+        // Change this to the full path to your trec_eval executable
+        String trecEvalCmd = "/full/path/to/trec_eval";  
+
+        ProcessBuilder pb = new ProcessBuilder(trecEvalCmd, qrelsPath, resultFile);
+        pb.redirectErrorStream(true); // combine stdout and stderr
+        Process process = pb.start();
+
+        // Read and print trec_eval output
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        System.out.println("\n--- TREC Eval Output for " + resultFile + " ---");
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            System.err.println("trec_eval exited with code: " + exitCode);
+        }
+        System.out.println("--- End of TREC Eval ---\n");
+
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+
 // --- Evaluate one analyzer + similarity combo ---
 private static void evaluateCombination(String indexDir, Analyzer analyzer, Similarity sim,
                                         Map<String, String> queries,
@@ -294,6 +323,9 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
 
     System.out.printf("Combo %-20s | MAP = %.4f | Recall@50 = %.4f | Results: %s\n",
             runTag, MAP, meanRecall, resultFile);
+        
+    // --- Run trec_eval automatically ---
+    runTrecEval(QRELS_PATH, resultFile);
 }
 
 
