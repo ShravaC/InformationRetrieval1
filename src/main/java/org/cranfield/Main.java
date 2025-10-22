@@ -229,7 +229,7 @@ public class Main {
 private static void runTrecEval(String qrelsPath, String resultFile) {
     try {
         // Change this to the full path to your trec_eval executable
-        String trecEvalCmd = "/full/path/to/trec_eval";  
+        String trecEvalCmd = "/opt/trec_eval/trec_eval";;  
 
         ProcessBuilder pb = new ProcessBuilder(trecEvalCmd, qrelsPath, resultFile);
         pb.redirectErrorStream(true); // combine stdout and stderr
