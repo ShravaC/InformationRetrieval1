@@ -423,33 +423,33 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
     // ...
     // -----------------------------
     private static Map<String, String> parseCranfieldQueries(String qpath) throws IOException {
-        Map<String, String> queries = new HashMap<>();
-        List<String> lines = Files.readAllLines(Paths.get(qpath));
+        Map<String, String> queries = new LinkedHashMap<>();
+        int id = 1; // start ID from 1
 
-        String currentId = null;
-        String currentTag = "";
-        StringBuilder currentText = new StringBuilder();
-        Integer i = 1;
-        for (String raw : lines) {
-            String line = raw;
-            if (line.startsWith(".I")) {
-                if (currentId != null) {
-                    queries.put(String.valueOf(i), currentText.toString().trim());
-                    currentText.setLength(0);
-                }
-                currentId = line.substring(3).trim();
-                currentTag = "";
-                i++;
-            } else if (line.startsWith(".W")) {
-                currentTag = "W";
-            } else {
-                if ("W".equals(currentTag) && currentId != null) {
-                    currentText.append(line).append(" ");
+        try (BufferedReader br = new BufferedReader(new FileReader(queriesFile))) {
+            String line;
+            boolean inW = false;
+            StringBuilder sb = new StringBuilder();
+
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith(".I")) {
+                    if (!sb.isEmpty()) {
+                        queries.put(String.valueOf(id), sb.toString().trim());
+                        id++; // increment ID for the next query
+                    }
+                    sb.setLength(0);
+                    inW = false;
+                } else if (line.equals(".W")) {
+                    inW = true;
+                } else if (inW) {
+                    sb.append(line).append(' ');
                 }
             }
-        }
-        if (currentId != null) {
-            queries.put(String.valueOf(i), currentText.toString().trim());
+
+            if (!sb.isEmpty()) {
+                queries.put(String.valueOf(id), sb.toString().trim());
+            }
         }
         return queries;
     }
