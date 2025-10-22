@@ -276,16 +276,17 @@ public class Main {
         String currentId = null;
         String currentTag = "";
         StringBuilder currentText = new StringBuilder();
-
+        Integer i = 1;
         for (String raw : lines) {
             String line = raw;
             if (line.startsWith(".I")) {
                 if (currentId != null) {
-                    queries.put(currentId, currentText.toString().trim());
+                    queries.put(i, currentText.toString().trim());
                     currentText.setLength(0);
                 }
                 currentId = line.substring(3).trim();
                 currentTag = "";
+                i++;
             } else if (line.startsWith(".W")) {
                 currentTag = "W";
             } else {
@@ -295,7 +296,7 @@ public class Main {
             }
         }
         if (currentId != null) {
-            queries.put(currentId, currentText.toString().trim());
+            queries.put(i, currentText.toString().trim());
         }
         return queries;
     }
