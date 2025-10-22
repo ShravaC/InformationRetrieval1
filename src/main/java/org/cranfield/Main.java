@@ -281,7 +281,7 @@ public class Main {
             String line = raw;
             if (line.startsWith(".I")) {
                 if (currentId != null) {
-                    queries.put(i, currentText.toString().trim());
+                    queries.put(String.valueOf(i), currentText.toString().trim());
                     currentText.setLength(0);
                 }
                 currentId = line.substring(3).trim();
@@ -296,7 +296,7 @@ public class Main {
             }
         }
         if (currentId != null) {
-            queries.put(i, currentText.toString().trim());
+            queries.put(String.valueOf(i), currentText.toString().trim());
         }
         return queries;
     }
