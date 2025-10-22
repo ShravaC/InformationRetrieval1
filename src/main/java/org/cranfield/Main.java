@@ -253,7 +253,8 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
 
         // Write TREC-style output
         for (int rank = 0; rank < hits.length; rank++) {
-            Document doc = searcher.getIndexReader().document(hits[rank].doc);
+            // Document doc = searcher.getIndexReader().document(hits[rank].doc);
+            Document doc = searcher.storedFields().document(hits[rank].doc);
             String docno = doc.get("id");
             resultsWriter.write(String.format("%s Q0 %s %d %.6f %s\n",
                     qid, docno, rank + 1, hits[rank].score, runTag));
@@ -266,7 +267,8 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
             int relRetrieved = 0;
             double sumPrecAtRel = 0.0;
             for (int rank = 0; rank < hits.length; rank++) {
-                Document doc = searcher.getIndexReader().document(hits[rank].doc);
+                // Document doc = searcher.getIndexReader().document(hits[rank].doc);
+                Document doc = searcher.storedFields().document(hits[rank].doc);
                 if (relevant.contains(doc.get("id"))) {
                     relRetrieved++;
                     sumPrecAtRel += (double) relRetrieved / (rank + 1);
@@ -276,7 +278,7 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
             long relInTop50 = Arrays.stream(hits)
                     .filter(sd -> {
                         try {
-                            return relevant.contains(searcher.getIndexReader().document(sd.doc).get("id"));
+                            return relevant.contains(searcher.storedFields().document(sd.doc).get("id"));
                         } catch (IOException e) { return false; }
                     }).count();
             sumRecallAt50 += (double) relInTop50 / relevant.size();
