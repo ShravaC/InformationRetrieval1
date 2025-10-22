@@ -50,7 +50,7 @@ import org.apache.lucene.search.similarities.*;
 import org.apache.lucene.queryparser.classic.*;
 import org.apache.lucene.util.Version;
 
-public class CranfieldSearchEngine {
+public class Main {
 
     // default file names - change or pass via args
     private static String CRAN_PATH = "cran.all.1400";
