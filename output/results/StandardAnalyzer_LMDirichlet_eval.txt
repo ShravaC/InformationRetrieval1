@@ -222,4 +222,4 @@ Query 353_221: AP=0.0000, Precision=0.0000, Recall=0.0000, F1=0.0000
 Query 355_222: AP=0.0000, Precision=0.0000, Recall=0.0000, F1=0.0000
 Query 356_223: AP=0.0000, Precision=0.0000, Recall=0.0000, F1=0.0000
 Query 360_224: AP=0.0000, Precision=0.0000, Recall=0.0000, F1=0.0000
-Query 225: AP=0.0332, Precision=0.0300, Recall=0.1250, F1=0.0484
+Query 225: AP=0.0968, Precision=0.0400, Recall=0.1600, F1=0.0640
