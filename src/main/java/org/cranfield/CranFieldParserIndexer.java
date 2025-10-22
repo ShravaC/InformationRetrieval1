@@ -222,30 +222,31 @@ public class CranFieldParserIndexer {
 
     public static LinkedHashMap<String, String> loadQueries(String queriesFile) throws IOException {
         LinkedHashMap<String, String> queries = new LinkedHashMap<>();
-        int id = 0;
+        int id = 1; // start ID from 1
+
         try (BufferedReader br = new BufferedReader(new FileReader(queriesFile))) {
             String line;
-            String qid = null;
             boolean inW = false;
             StringBuilder sb = new StringBuilder();
 
             while ((line = br.readLine()) != null) {
                 line = line.trim();
                 if (line.startsWith(".I")) {
-                    if (qid != null) {
-                        queries.put(qid + "_" + id, sb.toString().trim());
+                    if (!sb.isEmpty()) {
+                        queries.put(String.valueOf(id), sb.toString().trim());
+                        id++; // increment ID for the next query
                     }
-                    qid = line.substring(3).trim();
                     sb.setLength(0);
                     inW = false;
-                    id++; // increment ID for each query
                 } else if (line.equals(".W")) {
                     inW = true;
                 } else if (inW) {
                     sb.append(line).append(' ');
                 }
             }
-            if (qid != null) {
+
+            // add last query
+            if (!sb.isEmpty()) {
                 queries.put(String.valueOf(id), sb.toString().trim());
             }
         }
