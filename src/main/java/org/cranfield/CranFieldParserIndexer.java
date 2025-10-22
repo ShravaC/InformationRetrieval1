@@ -509,8 +509,8 @@ public class CranFieldParserIndexer {
                     File trecFolder = new File(trecEvalPath);
                     if (!trecFolder.exists()) trecFolder.mkdirs();
 
-                    String trecEvalOutput = String.format(trecEvalPath+"%s_%s_trec.txt", analyzerName, simName);
-                    String internalEvalOutput = String.format(trecEvalPath+"%s_%s_internal.txt", analyzerName, simName);
+                    String trecEvalOutput = String.format(trecEvalPath+"/%s_%s_trec.txt", analyzerName, simName);
+                    String internalEvalOutput = String.format(trecEvalPath+"/%s_%s_internal.txt", analyzerName, simName);
 
                     File trecEvalDetail = new File("evaluation_details.txt");
                     if (trecEvalDetail.exists()) {
