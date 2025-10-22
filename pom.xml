@@ -5,8 +5,8 @@
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.cranfield</groupId>
-    <artifactId>CranfieldProcessing</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>cranfield</artifactId>
+    <version></version>
     <packaging>jar</packaging>
 
     <properties>
@@ -56,7 +56,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.1</version>
                 <configuration>
-                    <mainClass>org.cranfield.CranFieldParserIndexer</mainClass>
+                    <mainClass>org.cranfield.Main</mainClass>
                 </configuration>
             </plugin>
 
@@ -75,7 +75,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.cranfield.CranFieldParserIndexer</mainClass>
+                                    <mainClass>org.cranfield.Main</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
