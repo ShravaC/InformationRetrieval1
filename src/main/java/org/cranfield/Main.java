@@ -1,38 +1,4 @@
 package org.cranfield;
-/* CranfieldSearchEngine.java
- *
- * Single-file program to:
- *  - parse and index Cranfield collection (cran.all.1400)
- *  - parse queries (cran.qry) and qrels (cran.qrel)
- *  - run queries with specified Analyzer and Similarity (BM25 or TF-IDF)
- *  - produce a TREC-style results file (results.txt)
- *  - compute MAP and Recall@50 in Java
- *
- * Usage:
- *   Compile:
- *     javac -cp "path/to/lucene-core.jar:path/to/lucene-analyzers-common.jar:path/to/lucene-queryparser.jar" CranfieldSearchEngine.java
- *
- *   Run:
- *     java -cp ".:path/to/lucene-core.jar:path/to/lucene-analyzers-common.jar:path/to/lucene-queryparser.jar" CranfieldSearchEngine \
- *         --cran cran.all.1400 --queries cran.qry --qrels cran.qrel --index index-dir --similarity bm25 --analyzer english
- *
- * Options (simple):
- *   --cran <path>        Path to cran.all.1400
- *   --queries <path>     Path to cran.qry
- *   --qrels <path>       Path to cran.qrel
- *   --index <path>       Directory to write Lucene index (will be created)
- *   --similarity <bm25|tfidf>  Similarity to use for searching (default: bm25)
- *   --analyzer <standard|english> Analyzer to use (default: english)
- *
- * Output:
- *   - results.txt (TREC results file)
- *   - printed MAP and Recall@50
- *
- * Note: ensure your cran files are the standard ones from:
- *       http://ir.dcs.gla.ac.uk/resources/test_collections/cran/
- *
- * Author: ChatGPT (code generated)
- */
 
 import java.io.*;
 import java.nio.file.*;
@@ -149,7 +115,7 @@ public class Main {
 
             // write TREC-format results: query_id Q0 docno rank score myRunTag
             for (int rank = 0; rank < hits.length; rank++) {
-                Document doc = searcher.doc(hits[rank].doc);
+                Document doc = searcher.storedFields().document(hits[rank].doc);
                 String docno = doc.get("id");
                 float score = hits[rank].score;
                 // TREC format
@@ -168,7 +134,7 @@ public class Main {
             int numRelRetrieved = 0;
             double sumPrecisionAtRel = 0.0;
             for (int rank = 0; rank < hits.length; rank++) {
-                Document doc = searcher.doc(hits[rank].doc);
+                Document doc = searcher.storedFields().document(hits[rank].doc);
                 String docno = doc.get("id");
                 if (relevant.contains(docno)) {
                     numRelRetrieved++;
@@ -187,7 +153,7 @@ public class Main {
             if (relevant.size() > 0) {
                 int relInTopK = 0;
                 for (ScoreDoc sd : hits) {
-                    Document doc = searcher.doc(sd.doc);
+                    Document doc = searcher.storedFields().document(sd.doc);
                     if (relevant.contains(doc.get("id"))) relInTopK++;
                 }
                 recallAt50 = (double) relInTopK / (double) relevant.size();
