@@ -19,9 +19,9 @@ import org.apache.lucene.util.Version;
 public class Main {
 
     // default file names - change or pass via args
-    private static String CRAN_PATH = "cran.all.1400";
-    private static String QUERIES_PATH = "cran.qry";
-    private static String QRELS_PATH = "cran.qrel";
+    private static String CRAN_PATH = "cran/cran.all.1400";
+    private static String QUERIES_PATH = "cran/cran.qry";
+    private static String QRELS_PATH = "cran/cran.qrel";
     private static String INDEX_DIR = "index";
     private static String RESULTS_FILE = "results.txt";
     private static String RUN_TAG = "myRun";
