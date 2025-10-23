@@ -187,7 +187,19 @@ public class Main {
 
     // Define similarities
     Map<String, Similarity> similarities = new LinkedHashMap<>();
-    similarities.put("bm25", new BM25Similarity());
+    // similarities.put("bm25", new BM25Similarity());
+
+    // BM25 tuning grid
+float[] k1_values = {1.0f, 1.2f, 1.5f, 2.0f};
+float[] b_values = {0.4f, 0.6f, 0.75f, 0.9f};
+
+for (float k1 : k1_values) {
+    for (float b : b_values) {
+        String label = String.format("bm25_k1%.1f_b%.2f", k1, b);
+        similarities.put(label, new BM25Similarity(k1, b));
+    }
+}
+
     similarities.put("tfidf", new ClassicSimilarity());
     similarities.put("dirichlet", new LMDirichletSimilarity());
 
@@ -237,6 +249,8 @@ private static void runTrecEval(String qrelsPath, String resultFile) {
 
         // Read and print trec_eval output
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        System.out.println("\n--- TREC Eval Output for " + resultFile + " (" + runTag + ") ---");
+        
         String line;
         System.out.println("\n--- TREC Eval Output for " + resultFile + " ---");
         while ((line = reader.readLine()) != null) {
@@ -325,7 +339,7 @@ private static void evaluateCombination(String indexDir, Analyzer analyzer, Simi
             runTag, MAP, meanRecall, resultFile);
         
     // --- Run trec_eval automatically ---
-    runTrecEval(QRELS_PATH, resultFile);
+    runTrecEval(QRELS_PATH, resultFile, runTag);
 }
 
 
