@@ -238,7 +238,7 @@ for (float k1 : k1_values) {
     System.out.println("\n✅ All combinations completed. Check generated results_*.txt files.");
 }
 
-private static void runTrecEval(String qrelsPath, String resultFile) {
+private static void runTrecEval(String qrelsPath, String resultFile, String runTag) {
     try {
         // Change this to the full path to your trec_eval executable
         String trecEvalCmd = "/opt/trec_eval/trec_eval";;  
