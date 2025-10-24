@@ -190,8 +190,8 @@ public class Main {
     // similarities.put("bm25", new BM25Similarity());
 
     // BM25 tuning grid
-float[] k1_values = {1.0f, 1.2f, 1.5f, 2.0f};
-float[] b_values = {0.4f, 0.6f, 0.75f, 0.9f};
+float[] k1_values = {1.2f, 1.5f, 2.0f};
+float[] b_values = {0.6f, 0.75f, 0.9f};
 
 for (float k1 : k1_values) {
     for (float b : b_values) {
